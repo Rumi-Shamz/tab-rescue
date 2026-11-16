@@ -1,0 +1,54 @@
+# tab-rescue settings (all optional; these are the defaults).
+# Destinations, projects and models come from yt-extract: its config.toml [routing] + models.toml.
+yt_extract = "~/Dev/projects/yt-extract"
+inbox_file = "TAB-INBOX.md"   # written into each project repo (client repos: git-excluded)
+model = ""                    # empty = yt-extract's routing model / default. Claude or local Ollama only.
+batch = 50                    # items per model call; batches run in order so names get reused
+# Titles on these hosts (regex on the host) are never sent to the model.
+private_hosts = ['^mail\.', '^outlook\.', '^webmail\.', 'bank', '^(.+\.)?paypal\.', '^(.+\.)?revolut\.',
+                 '^(.+\.)?wise\.com$', '^(.+\.)?stripe\.com$']
+
+# Services you build with. Their consoles, settings and plan pages are not bookmarked one by one:
+# the reference folder "Stack" gets one link per service (`console`) and those pages are proposed as
+# drop. Docs and guides of the service are routed like any other page. `path` (optional) limits
+# which pages count as console pages: on GitHub only your dashboard and settings, not other repos.
+[stack.Cloudflare]
+host = '(^|\.)cloudflare\.com$'
+console = "https://dash.cloudflare.com/"
+
+[stack.Resend]
+host = '(^|\.)resend\.com$'
+console = "https://resend.com/emails"
+
+[stack.Vercel]
+host = '(^|\.)vercel\.com$'
+console = "https://vercel.com/dashboard"
+
+[stack.Supabase]
+host = '(^|\.)supabase\.com$'
+console = "https://supabase.com/dashboard/projects"
+
+[stack.GitHub]
+host = '^github\.com$'
+path = '^/?$|^/(settings|notifications|dashboard|codespaces|organizations|account|billing|sponsors)(/|$)'
+console = "https://github.com/"
+
+[stack."Google Cloud"]
+host = '^console\.cloud\.google\.com$'
+console = "https://console.cloud.google.com/"
+
+# Knowledge fields folded into a broader one ("narrow name" = "field it goes into"). A field is a
+# discipline you keep studying; about a dozen is plenty. Edit freely, then reload review.html after
+# `tab-rescue route` or `tab-rescue apply` rebuilds it (no model call needed).
+[merge_fields]
+"Machine Learning Theory" = "AI Engineering"
+"Software Design" = "Software Architecture"
+"Distributed Systems" = "Software Architecture"
+"Compilers" = "Computer Science"
+"Git" = "Software Craft"
+"Linux" = "Software Craft"
+"Containers" = "Software Craft"
+"JavaScript" = "Web Fundamentals"
+"Web3 Fundamentals" = "Web Fundamentals"
+"Right To Repair" = "Privacy & Digital Rights"
+"Privacy" = "Privacy & Digital Rights"

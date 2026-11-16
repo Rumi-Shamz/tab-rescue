@@ -1,0 +1,1157 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="referrer" content="no-referrer">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'; img-src data:">
+<title>tab-rescue</title>
+<style>
+:root {
+  --bg: #f6f6f4; --panel: #ffffff; --panel2: #efefec; --text: #1d1f21; --muted: #62676d;
+  --line: #dcdcd6; --accent: #2f5fd0; --accent-text: #ffffff; --accent-bg: #e3eafb;
+  --ok: #1f7a43; --ok-bg: #dff3e6; --drop: #b3261e; --drop-bg: #fbdcd9; --warn: #8a5a00; --warn-bg: #faecc8;
+  --focus: #2f5fd0;
+  --c-keep: #6b6f76; --c-integrate: #2f5fd0; --c-venture-os: #8a5a00; --c-learn: #6b3fb5; --c-practice: #0f7c80;
+  --c-backlog: #a2457a; --c-reference: #3d7a32; --c-drop: #b3261e; --c-noise: #8a8f96; --c-video: #b8500f;
+  color-scheme: light dark;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #17181a; --panel: #1f2124; --panel2: #292c30; --text: #e6e7e8; --muted: #9aa0a6;
+    --line: #34383d; --accent: #7aa2ff; --accent-text: #0e1522; --accent-bg: #1f2a44;
+    --ok: #6fd39a; --ok-bg: #1b3a29; --drop: #ff8f86; --drop-bg: #4a2420; --warn: #e8b64c; --warn-bg: #3e3213;
+    --focus: #7aa2ff;
+    --c-keep: #a0a5ad; --c-integrate: #7aa2ff; --c-venture-os: #e8b64c; --c-learn: #b79cff; --c-practice: #5fd0d4;
+    --c-backlog: #f08ac4; --c-reference: #8fd47f; --c-drop: #ff8f86; --c-noise: #9aa0a6; --c-video: #ffa066;
+  }
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; }
+body { background: var(--bg); color: var(--text); font: 14px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  display: flex; flex-direction: column; }
+button, select { font: inherit; color: inherit; background: var(--panel2); border: 1px solid var(--line); border-radius: 6px;
+  padding: 3px 9px; cursor: pointer; }
+button:hover { border-color: var(--accent); }
+button.primary { background: var(--accent); color: var(--accent-text); border-color: var(--accent); }
+button:disabled { opacity: .5; cursor: default; }
+input[type=text] { font: inherit; color: inherit; background: var(--panel); border: 1px solid var(--line);
+  border-radius: 6px; padding: 5px 9px; }
+code { background: var(--panel2); border: 1px solid var(--line); border-radius: 4px; padding: 1px 6px; font-size: 13px; }
+
+#top { background: var(--panel); border-bottom: 1px solid var(--line); padding: 10px 16px; display: flex;
+  flex-wrap: wrap; gap: 10px 16px; align-items: center; }
+#top h1 { font-size: 16px; margin: 0; font-weight: 650; }
+#steps { display: flex; gap: 6px; flex-wrap: wrap; }
+.step { display: flex; align-items: center; gap: 8px; padding: 4px 10px 4px 6px; border-radius: 18px; border: 1px solid var(--line);
+  background: var(--panel); cursor: pointer; }
+.step .n { width: 22px; height: 22px; border-radius: 50%; display: grid; place-items: center; font-size: 12px; font-weight: 650;
+  background: var(--panel2); color: var(--muted); }
+.step .lab { font-weight: 550; }
+.step .cnt { color: var(--muted); font-size: 12px; font-variant-numeric: tabular-nums; }
+.step.now { border-color: var(--accent); background: var(--accent-bg); }
+.step.now .n { background: var(--accent); color: var(--accent-text); }
+.step.done .n { background: var(--ok); color: var(--panel); }
+#actions { margin-left: auto; display: flex; gap: 6px; align-items: center; }
+
+#layout { flex: 1; display: flex; min-height: 0; }
+#side { width: 280px; flex: none; overflow-y: auto; border-right: 1px solid var(--line); background: var(--panel); padding: 8px 0 40px; }
+#side .sec { display: flex; align-items: center; gap: 8px; margin: 14px 0 2px; padding: 6px 14px; font-size: 11.5px; font-weight: 700;
+  text-transform: uppercase; letter-spacing: .07em; color: var(--sc, var(--muted)); background: var(--panel2);
+  border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); }
+#side .sec::before { content: ""; width: 9px; height: 9px; border-radius: 2px; background: var(--sc, var(--muted)); }
+#side .sec .tot { margin-left: auto; font-weight: 600; color: var(--muted); letter-spacing: 0; }
+#side .nav { display: flex; align-items: center; gap: 8px; padding: 4px 14px 4px 22px; cursor: pointer; border-left: 3px solid transparent; }
+#side .nav.top { padding-left: 14px; font-weight: 550; }
+#side .nav:hover { background: var(--panel2); }
+#side .nav.active { background: var(--panel2); border-left-color: var(--sc, var(--accent)); font-weight: 600; }
+#side .nav .nm { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+#side .nav .ct { color: var(--muted); font-variant-numeric: tabular-nums; font-size: 12px; }
+#side .nav.complete .nm::before { content: "✓ "; color: var(--ok); }
+#main { flex: 1; overflow-y: auto; padding: 16px 20px 70px; }
+
+.intro { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px; margin-bottom: 16px; max-width: 980px; }
+.intro h2 { margin: 0 0 6px; font-size: 17px; }
+.intro p { margin: 4px 0; color: var(--muted); }
+.intro p b { color: var(--text); }
+.nextbox { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--line); }
+.nextbox .what { font-weight: 600; }
+
+.section-h { display: flex; align-items: baseline; gap: 10px; margin: 22px 0 8px; padding-bottom: 6px; border-bottom: 2px solid var(--sc, var(--line)); }
+.section-h h3 { margin: 0; font-size: 14px; color: var(--sc, var(--text)); }
+.tile { border-top: 3px solid var(--sc, var(--line)) !important; }
+.chips { display: flex; gap: 6px; flex-wrap: wrap; margin: 0 0 12px; }
+.chip { font-size: 12.5px; border-radius: 14px; padding: 3px 11px; background: var(--panel); border: 1px solid var(--line); cursor: pointer; }
+.chip.on { background: var(--accent); color: var(--accent-text); border-color: var(--accent); }
+.kind { font-size: 10.5px; font-weight: 650; text-transform: uppercase; letter-spacing: .04em; border-radius: 3px; padding: 0 5px; margin-right: 6px;
+  border: 1px solid var(--line); color: var(--muted); }
+.kind.b { color: var(--c-reference); border-color: var(--c-reference); }
+
+/* guided mode */
+body.guide #side, body.guide #steps, body.guide #helpbar { display: none; }
+body.guide #main { display: flex; justify-content: center; padding: 16px 28px 40px; }
+#b-back { display: none; }
+body.guide #b-back { display: inline-block; }
+#gbar { flex: 1; min-width: 200px; display: none; align-items: center; gap: 10px; }
+body.guide #gbar { display: flex; }
+#gbar .track { flex: 1; height: 8px; background: var(--panel2); border-radius: 4px; overflow: hidden; }
+#gbar .fill { height: 100%; background: var(--ok); width: 0; transition: width .25s; }
+#gbar .txt { font-size: 13px; color: var(--muted); white-space: nowrap; font-variant-numeric: tabular-nums; }
+.q { width: min(1600px, 100%); }
+.q .tag { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: var(--sc, var(--muted)); }
+.q .tag::before { content: ""; width: 9px; height: 9px; border-radius: 2px; background: var(--sc, var(--muted)); }
+.q h2 { font-size: 22px; margin: 6px 0 4px; line-height: 1.3; }
+.q .lead { color: var(--muted); margin: 0 0 14px; }
+.q .lead.changed { color: var(--warn); background: var(--warn-bg); border-radius: 6px; padding: 6px 10px; }
+.q .qlist { background: var(--panel); border: 1px solid var(--line); border-top: 3px solid var(--sc, var(--line)); border-radius: 10px; max-height: calc(100vh - 290px); min-height: 160px; overflow-y: auto; }
+.q .qhead, .q .qrow { display: grid; grid-template-columns: 30px minmax(0, 5fr) minmax(0, 4fr) minmax(150px, auto); gap: 2px 16px; padding: 8px 14px; align-items: start; }
+.q .qhead { position: sticky; top: 0; z-index: 1; background: var(--panel2); border-bottom: 1px solid var(--line); font-size: 11.5px; font-weight: 650; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); padding-top: 5px; padding-bottom: 5px; }
+.q .qrow { border-bottom: 1px solid var(--line); }
+.q .qrow:last-child { border-bottom: 0; }
+.q .qrow.off > :not(.qedit):not(.cb) { opacity: .5; }
+.q .qrow.moved { background: var(--accent-bg); }
+.q .qrow .cb { display: flex; padding-top: 2px; cursor: pointer; }
+.q .qrow .cb input { width: 17px; height: 17px; cursor: pointer; }
+.q .qrow a { color: var(--text); text-decoration: none; display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 550; }
+.q .qrow a:hover { color: var(--accent); text-decoration: underline; }
+.q .qrow .sub { font-size: 12px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.q .qrow .nx { font-size: 13.5px; line-height: 1.45; color: var(--text); border-left: 3px solid var(--line); padding-left: 10px; }
+.q .qrow .nx .note { display: block; margin-top: 3px; color: var(--accent); font-weight: 550; }
+.q .qrow .rt { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; }
+.q .qrow .rt button { font-size: 12px; padding: 2px 9px; white-space: nowrap; }
+.q .qedit { grid-column: 2 / -1; display: flex; gap: 8px; flex-wrap: wrap; align-items: center; padding: 6px 0 2px; }
+.q .qedit select { max-width: 300px; }
+.q .qedit input { flex: 1; min-width: 240px; }
+@media (max-width: 900px) {
+  .q .qhead { display: none; }
+  .q .qrow { grid-template-columns: 30px minmax(0, 1fr); }
+  .q .qrow .nx, .q .qrow .rt { grid-column: 2; }
+  .q .qrow .rt { flex-direction: row; justify-content: flex-start; }
+}
+.q .notebox { display: flex; gap: 8px; align-items: center; margin-top: 12px; }
+.q .notebox input { flex: 1; }
+.q .tools { display: flex; gap: 10px; align-items: center; margin: 8px 0 0; font-size: 12.5px; color: var(--muted); }
+.q .tools button { font-size: 12px; padding: 1px 8px; }
+.q .answer { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-top: 16px; }
+.q .answer button, .q .answer select { font-size: 15px; padding: 8px 16px; border-radius: 8px; }
+.q .answer .hint { color: var(--muted); font-size: 12.5px; }
+.q .single { background: var(--panel); border: 1px solid var(--line); border-top: 3px solid var(--sc, var(--line)); border-radius: 10px; padding: 14px 16px; }
+.q .single a { font-size: 17px; font-weight: 600; color: var(--text); }
+.q .single .sub { color: var(--muted); font-size: 13px; margin-top: 2px; }
+.q .single .was { margin-top: 10px; font-size: 13px; }
+.q .opts { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 8px; margin-top: 16px; }
+.q .opts button { text-align: left; padding: 10px 12px; border-radius: 8px; font-size: 14px; }
+.q .opts button small { display: block; color: var(--muted); font-size: 11.5px; }
+.q .opts button.sugg { border-color: var(--ok); background: var(--ok-bg); }
+.section-h .sub { color: var(--muted); font-size: 12px; }
+.tiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 10px; }
+.tile { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; display: flex; flex-direction: column; gap: 6px; }
+.tile.complete { border-color: var(--ok); }
+.tile .hd { display: flex; align-items: baseline; gap: 8px; }
+.tile .hd b { font-size: 14px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; }
+.tile .hd .ct { color: var(--muted); font-size: 12px; white-space: nowrap; }
+.tile .desc { color: var(--muted); font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tile ul { margin: 0; padding: 0 0 0 16px; font-size: 12.5px; }
+.tile li { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tile .btns { display: flex; gap: 6px; margin-top: auto; }
+.tile .btns button { font-size: 12px; }
+
+#viewhead { display: flex; align-items: center; gap: 12px; margin: 0 0 10px; flex-wrap: wrap; }
+#viewhead h2 { margin: 0; font-size: 17px; }
+#viewhead .sub { color: var(--muted); }
+#viewhead .grow { flex: 1; }
+#filter { width: min(360px, 100%); }
+.list { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; }
+.row { display: grid; grid-template-columns: 30px minmax(0, 1fr) auto; gap: 2px 10px; align-items: start;
+  padding: 7px 12px; border-bottom: 1px solid var(--line); border-left: 3px solid transparent; }
+.row:last-child { border-bottom: 0; }
+.row.focused { border-left-color: var(--focus); background: var(--panel2); }
+.row .acc { width: 26px; height: 26px; padding: 0; border-radius: 50%; color: var(--muted); }
+.row.accepted .acc { background: var(--ok-bg); color: var(--ok); border-color: var(--ok); }
+.row.isdrop.accepted .acc { background: var(--drop-bg); color: var(--drop); border-color: var(--drop); }
+.row .main { min-width: 0; }
+.row a { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text); text-decoration: none; }
+.row a:hover { text-decoration: underline; color: var(--accent); }
+.row .sub { font-size: 12px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.row .step-t { font-size: 12.5px; margin-top: 2px; }
+.row .step-t::before { content: "→ "; color: var(--muted); }
+.row .ctl { display: flex; gap: 4px; align-items: center; }
+.row .ctl button, .row .ctl select { font-size: 12px; padding: 2px 8px; max-width: 220px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.row .moved { color: var(--accent); }
+.badge { font-size: 11px; border-radius: 4px; padding: 1px 6px; white-space: nowrap; background: var(--panel2); color: var(--muted); }
+.badge.saved { background: var(--ok-bg); color: var(--ok); }
+.badge.mode { background: var(--accent-bg); color: var(--accent); }
+.more { display: block; margin: 10px auto; }
+.empty { color: var(--muted); padding: 30px 0; text-align: center; }
+table.plan { border-collapse: collapse; width: 100%; max-width: 900px; background: var(--panel); border: 1px solid var(--line); border-radius: 10px; }
+table.plan td, table.plan th { padding: 6px 12px; border-bottom: 1px solid var(--line); text-align: left; }
+table.plan th { font-size: 12px; color: var(--muted); font-weight: 600; }
+.pill { font-size: 11px; font-weight: 650; border-radius: 4px; padding: 1px 7px; }
+.pill.go { background: var(--ok-bg); color: var(--ok); }
+.pill.wait { background: var(--warn-bg); color: var(--warn); }
+#dialog { position: fixed; inset: 0; background: rgba(0,0,0,.35); display: none; place-items: center; z-index: 5; }
+#dialog.open { display: grid; }
+#dialog .box { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 18px 20px; max-width: 560px; width: calc(100% - 32px); }
+#dialog h3 { margin: 0 0 8px; }
+#dialog p { margin: 8px 0; color: var(--muted); }
+#dialog .cmd { display: flex; gap: 8px; align-items: center; margin: 10px 0; }
+#helpbar { position: fixed; left: 0; right: 0; bottom: 0; background: var(--panel); border-top: 1px solid var(--line);
+  padding: 5px 16px; font-size: 12px; color: var(--muted); }
+#helpbar kbd { background: var(--panel2); border: 1px solid var(--line); border-radius: 4px; padding: 0 5px; font: inherit; color: var(--text); }
+@media (max-width: 760px) {
+  #layout { flex-direction: column; }
+  #side { width: auto; max-height: 34vh; border-right: 0; border-bottom: 1px solid var(--line); }
+  #main { padding: 12px 16px 70px; }
+  .row { grid-template-columns: 30px minmax(0, 1fr); }
+  .row .ctl { grid-column: 2; }
+  #helpbar { display: none; }
+}
+</style>
+</head>
+<body>
+<header id="top">
+  <h1>tab-rescue</h1>
+  <div id="steps"></div>
+  <div id="gbar"><div class="track"><div class="fill" id="gfill"></div></div><span class="txt" id="gtxt"></span></div>
+  <div id="actions">
+    <button id="b-back" title="Undo your last answer and show that question again (Backspace)">← Back</button>
+    <button id="b-mode" title="Switch between one question at a time and the full overview"></button>
+    <button id="b-export" class="primary">Export accepted</button>
+    <button id="b-reset" title="Forget every accept and move made on this page">Reset</button>
+  </div>
+</header>
+<div id="layout">
+  <nav id="side" aria-label="Destinations"></nav>
+  <main id="main"></main>
+</div>
+<div id="dialog" role="dialog" aria-modal="true"><div class="box">
+  <h3 id="dlg-title"></h3>
+  <div id="dlg-body"></div>
+  <div style="text-align:right;margin-top:12px"><button id="dlg-close">Close</button></div>
+</div></div>
+<div id="helpbar"><kbd>j</kbd>/<kbd>k</kbd> move &middot; <kbd>a</kbd> accept &middot; <kbd>d</kbd> drop &middot;
+  <kbd>m</kbd> move to another destination &middot; <kbd>o</kbd> open page &middot; <kbd>/</kbd> filter &middot; <kbd>Esc</kbd> leave filter</div>
+<script>
+"use strict";
+const DATA = /*__TAB_RESCUE_DATA__*/null;
+(function () {
+  const items = DATA.items, CTX = DATA.ctx || {};
+  const STORE = "tab-rescue:v1";
+  const CHUNK = 200;
+  const $ = (id) => document.getElementById(id);
+  const fmt = (n) => Number(n).toLocaleString();
+  const BR = { firefox: "Firefox", brave: "Brave", chromium: "Chromium", chrome: "Chrome" };
+  const MODLABEL = { m1: "M1 Business modeling", m2: "M2 Building (Forge)", m3: "M3 Marketing", m4: "M4 Operating" };
+  const SECTIONS = [
+    ["keep", "Pinned", "stays open in the browser"],
+    ["integrate", "Projects", "each project's TAB-INBOX.md"],
+    ["venture-os", "Business", "Venture OS modules and the idea intake"],
+    ["learn", "Knowledge quests", "a reading queue per field in the vault"],
+    ["video", "YouTube playlists", "videos for yt-extract to process"],
+    ["practice", "Skills to practise", "vault Next/Dev - Practice"],
+    ["backlog", "Future projects", "vault Next/Dev - Backlog"],
+    ["reference", "Reference", "a clean bookmark folder per topic"],
+    ["drop", "Drop", "nothing is saved; close the tab"],
+  ];
+  const SECTION_OF = { intake: "venture-os" };
+  const secColor = (r) => `var(--c-${SECTION_OF[r] || r})`;
+  const projLabel = {};
+  for (const p of CTX.projects || []) projLabel[p.id] = p.label;
+
+  // ---- state ---------------------------------------------------------------
+  // dec[item id] = {r, t, f, m, b, acc, moved}  (only items the person touched)
+  let dec = {};
+  try { const raw = localStorage.getItem(STORE); if (raw) dec = JSON.parse(raw) || {}; } catch (e) { dec = {}; }
+  function save() { try { localStorage.setItem(STORE, JSON.stringify(dec)); } catch (e) { /* storage unavailable */ } }
+
+  function cur(it) {              // the route this item is on now
+    const d = dec[it.i];
+    if (d && d.moved) return d;
+    if (it.s) return it.s;
+    return null;
+  }
+  // An accept remembers which proposal it accepted ("route|target|field"). When the proposal changes
+  // later (a re-route, a merged field), the item is asked again instead of being exported silently.
+  // Accepts from before this rule are checked against the last export (it.ex).
+  const sig = (c) => c ? `${c.r}|${c.t || ""}|${c.f || ""}` : "";
+  function isAccepted(it) {
+    const d = dec[it.i];
+    if (!d || !d.acc) return false;
+    if (d.moved || !it.s) return true;
+    if (d.acc === 1) return !(it.ex && it.ex !== sig(it.s));
+    return d.acc === sig(it.s);
+  }
+  const changed = (it) => !!(dec[it.i] && dec[it.i].acc && !isAccepted(it));
+  const accVal = (it) => (dec[it.i] && dec[it.i].moved) || !it.s ? 1 : sig(it.s);
+  const isApplied = (it) => { const c = cur(it); return !!(it.ap && c && it.ap.r === c.r && (it.ap.t || "") === (c.t || "")); };
+  const isNoise = (it) => !!(it.s && it.s.z && !(dec[it.i] && dec[it.i].moved));
+  function destKey(c) { if (!c) return ""; return c.r + "|" + (c.r === "learn" || c.r === "practice" ? (c.f || "Unfiled") : (c.t || "")); }
+  function destName(c) {
+    if (!c) return "not routed";
+    switch (c.r) {
+      case "integrate": return c.t;
+      case "venture-os": return MODLABEL[c.t] || c.t;
+      case "intake": return "Idea intake";
+      case "learn": return c.f || "Unfiled";
+      case "practice": return "Practise · " + (c.f || "Unfiled");
+      case "backlog": return c.t || "Unsorted";
+      case "reference": return c.t || "Reference";
+      case "keep": return "Stays open";
+      case "video": return `YouTube · ${c.t} playlist`;
+      default: return "Drop";
+    }
+  }
+  function destDesc(r, t) {
+    if (r === "integrate") return projLabel[t] || "";
+    if (r === "intake") return "evaluated in the Venture OS idea pipeline";
+    if (r === "venture-os") return ((CTX.modules || {})[t] || "");
+    return "";
+  }
+  const hay = items.map((it) => ((it.t || "") + "\n" + it.u).toLowerCase());
+
+  // ---- grouping --------------------------------------------------------------
+  function groups() {           // destKey -> {key, r, t, f, name, idx[]} for routed, non-noise items
+    const g = new Map();
+    items.forEach((it, i) => {
+      if (isNoise(it)) return;
+      const c = cur(it); if (!c) return;
+      const k = destKey(c);
+      if (!g.has(k)) g.set(k, { key: k, r: c.r, t: c.t || "", f: c.f || "", name: destName(c), idx: [] });
+      g.get(k).idx.push(i);
+    });
+    return g;
+  }
+  function done(it) { return isAccepted(it) || isApplied(it); }
+  function stats() {
+    let noise = 0, noiseDone = 0, routed = 0, routedDone = 0, ready = 0, unrouted = 0, tabs = 0, tabsSaved = 0;
+    const bmNorm = new Set(items.filter((it) => it.k === "b").map((it) => it.n));
+    for (const it of items) {
+      const c = cur(it);
+      if (!c) unrouted++;
+      else if (isNoise(it)) { noise++; if (done(it)) noiseDone++; }
+      else { routed++; if (done(it)) routedDone++; }
+      if (isAccepted(it) && !isApplied(it)) ready++;
+      if (it.k === "t") { tabs++; if (it.ap || bmNorm.has(it.n)) tabsSaved++; }
+    }
+    return { noise, noiseDone, routed, routedDone, ready, unrouted, tabs, tabsSaved };
+  }
+
+  // ---- dom helpers -------------------------------------------------------------
+  function el(tag, cls, text) {
+    const e = document.createElement(tag);
+    if (cls) e.className = cls;
+    if (text != null) e.textContent = text;
+    return e;
+  }
+  function btn(text, cls, on, title) {
+    const b = el("button", cls, text);
+    if (title) b.title = title;
+    b.addEventListener("click", (ev) => { ev.stopPropagation(); on(ev); });
+    return b;
+  }
+
+  // ---- view state ------------------------------------------------------------------
+  let view = "start";             // start | noise | unrouted | close | dest:<key> | search
+  let filterText = "";
+  let noiseCat = "";             // noise view: category filter
+  let focusIdx = -1;
+  let rowsShown = [];             // item indexes in the current list, in order
+
+  // ---- header steps --------------------------------------------------------------
+  function renderSteps() {
+    const s = stats();
+    const steps = [
+      ["noise", "Clear noise", `${fmt(s.noiseDone)}/${fmt(s.noise)}`, s.noise > 0 && s.noiseDone >= s.noise],
+      ["start", "Confirm destinations", s.routed ? `${fmt(s.routedDone)}/${fmt(s.routed)}` : "run route", s.routed > 0 && s.routedDone >= s.routed],
+      ["export", "Export & apply", s.ready ? `${fmt(s.ready)} ready` : "nothing new", false],
+      ["close", "Close tabs", `${fmt(s.tabsSaved)}/${fmt(s.tabs)} saved`, s.tabs > 0 && s.tabsSaved >= s.tabs],
+    ];
+    const nowStep = s.noise > s.noiseDone ? "noise" : (s.routed > s.routedDone ? "start" : (s.ready ? "export" : "close"));
+    const box = $("steps"); box.textContent = "";
+    steps.forEach(([v, lab, cnt, ok], n) => {
+      const st = el("div", "step" + (ok ? " done" : "") + (v === nowStep ? " now" : ""));
+      st.appendChild(el("span", "n", ok ? "✓" : String(n + 1)));
+      st.appendChild(el("span", "lab", lab));
+      st.appendChild(el("span", "cnt", cnt));
+      st.addEventListener("click", () => v === "export" ? exportDecisions() : setView(v));
+      box.appendChild(st);
+    });
+    $("b-export").textContent = s.ready ? `Export accepted (${fmt(s.ready)})` : "Export accepted";
+    return { s, nowStep };
+  }
+
+  // ---- sidebar -----------------------------------------------------------------------
+  function sectionOf(r) { return SECTION_OF[r] || r; }
+  function sortedGroups() {
+    const g = [...groups().values()];
+    g.sort((a, b) => b.idx.length - a.idx.length || a.name.localeCompare(b.name));
+    return g;
+  }
+  function navItem(label, count, v, complete) {
+    const n = el("div", "nav" + (view === v ? " active" : "") + (complete ? " complete" : ""));
+    n.appendChild(el("span", "nm", label));
+    n.appendChild(el("span", "ct", count));
+    n.addEventListener("click", () => setView(v));
+    return n;
+  }
+  function renderSide() {
+    const side = $("side"); side.textContent = "";
+    const s = stats();
+    const top = [navItem("Start here", "", "start", false),
+      navItem("Noise", `${s.noiseDone}/${s.noise}`, "noise", s.noise > 0 && s.noiseDone >= s.noise),
+      s.unrouted ? navItem("Not routed yet", String(s.unrouted), "unrouted", false) : null,
+      navItem("Close tabs", `${s.tabsSaved}/${s.tabs}`, "close", false)];
+    for (const n of top) if (n) { n.classList.add("top"); side.appendChild(n); }
+    const gs = sortedGroups();
+    for (const [r, title] of SECTIONS) {
+      const mine = gs.filter((g) => sectionOf(g.r) === r);
+      if (!mine.length) continue;
+      const sec = el("div", "sec", title);
+      sec.style.setProperty("--sc", secColor(r));
+      sec.appendChild(el("span", "tot", String(mine.reduce((a, g) => a + g.idx.length, 0))));
+      side.appendChild(sec);
+      for (const g of mine) {
+        const d = g.idx.filter((i) => done(items[i])).length;
+        const n = navItem(g.name, `${d}/${g.idx.length}`, "dest:" + g.key, d >= g.idx.length);
+        n.style.setProperty("--sc", secColor(r));
+        side.appendChild(n);
+      }
+    }
+  }
+
+  // ---- views ---------------------------------------------------------------------------
+  function setView(v) { if (v !== view) noiseCat = ""; view = v; filterText = ""; focusIdx = -1; render(); $("main").scrollTop = 0; }
+  let mode = "guide";
+  try { mode = localStorage.getItem(STORE + ":mode") || "guide"; } catch (e) { /* default */ }
+  function setMode(m) { mode = m; try { localStorage.setItem(STORE + ":mode", m); } catch (e) { /* ignore */ } render(); $("main").scrollTop = 0; }
+  function render() {
+    document.body.classList.toggle("guide", mode === "guide");
+    $("b-mode").textContent = mode === "guide" ? "Show overview" : "One question at a time";
+    if (mode === "guide") { renderSteps(); renderGuide(); return; }
+    const { s, nowStep } = renderSteps(); renderSide(); renderMain(s, nowStep);
+  }
+  function refreshChrome() { renderSteps(); if (mode !== "guide") renderSide(); }
+
+  // ---- guided mode: one question at a time ------------------------------------------------
+  const skipped = new Set();       // question keys skipped in this visit
+  const SMALL = 3;                 // destinations this small are asked together, one question per section
+
+  // ---- undo: every guided answer can be taken back -------------------------------------------
+  const HIST = STORE + ":hist", HMAX = 60;
+  let hist = [];
+  try { hist = JSON.parse(localStorage.getItem(HIST) || "[]") || []; } catch (e) { hist = []; }
+  function remember() {           // call before changing dec in guided mode
+    hist.push(JSON.stringify({ dec, skipped: [...skipped] }));
+    if (hist.length > HMAX) hist = hist.slice(-HMAX);
+    try { localStorage.setItem(HIST, JSON.stringify(hist)); } catch (e) { /* storage full: undo is best effort */ }
+  }
+  function back() {
+    if (!hist.length) return;
+    const snap = JSON.parse(hist.pop());
+    try { localStorage.setItem(HIST, JSON.stringify(hist)); } catch (e) { /* ignore */ }
+    dec = snap.dec || {}; skipped.clear(); (snap.skipped || []).forEach((k) => skipped.add(k));
+    save(); render(); $("main").scrollTop = 0;
+  }
+
+  const asking = (it) => !!(dec[it.i] && dec[it.i].ask && !isAccepted(it));
+  function pending(idx) { return idx.filter((i) => !done(items[i]) && !asking(items[i])); }
+  const PHRASE = {
+    keep: (g, n) => [`Keep these ${n} tabs open?`, "Pinned tabs you use every day, and this page while you work in it. They stay in the browser and are never closed."],
+    integrate: (g, n) => [`Send these ${n} to the ${g.t} inbox?`, (projLabel[g.t] || "") + ". Each one becomes a task in the project's TAB-INBOX.md, with the next step shown on its right."],
+    "venture-os": (g, n) => [`Send these ${n} to Venture OS ${MODLABEL[g.t] || g.t}?`, "Each one becomes a task in the module's TAB-INBOX.md."],
+    intake: (g, n) => [`Queue these ${n} as business ideas to evaluate?`, "They go to the idea queue; `yt-extract ideas --send` files them in the Coda pipeline."],
+    learn: (g, n) => [`Add these ${n} to your ${g.f} reading queue?`, "Knowledge/Reading/" + g.f + ".md in the vault. Depth deepens a field you have, bridge links two, breadth opens a new one."],
+    video: (g, n) => [`Add these ${n} videos to your ${g.t} playlist?`, `apply queues them for yt-extract's ${g.t} area (state/queue/${g.t}.txt): its next scheduled poll processes them like videos in that playlist. Wrong area? Use Change / note on the row.`],
+    practice: (g, n) => [`Practise these ${n} (${g.f})?`, "Listed in Next/Dev - Practice with one drill each."],
+    backlog: (g, n) => [`Park these ${n} under the future project “${g.t}”?`, "Next/Dev - Backlog in the vault: starting points for something you don't build yet."],
+    reference: (g, n) => [`Keep these ${n} as bookmarks in “${g.t}”?`, "They go into reference-bookmarks.html, a clean folder structure you import into the browser."],
+    drop: (g, n, kind) => [kind === "b" ? `Delete these ${n} bookmarks?` : `Close these ${n} tabs without saving?`,
+      "Nothing is saved for them. Untick anything worth keeping and you'll be asked about it on its own."],
+    small: (g, n) => [n === 1 ? "Send this one to the destination shown?" : `Send these ${n} to the destinations shown?`,
+      "Smaller destinations, asked together. Each row says where it goes; untick the ones that are wrong, or Change one."],
+    noise: (g, n) => [`${g.cat}: drop these ${n}?`, NOISE_WHY[g.cat] || "Found without a model. Untick anything you want to keep."],
+  };
+  const NOISE_WHY = {
+    "Duplicate tabs": "The same page is open more than once. The copy you used last stays and is routed with the rest.",
+    "Already bookmarked": "These tabs are saved as bookmarks already; the bookmark is routed instead.",
+    "Duplicate bookmarks": "The same page is bookmarked more than once; the oldest bookmark stays.",
+    "Search results": "Search result pages: the search is done.",
+    "Login and checkout pages": "Sign-in, OAuth callback and checkout pages.",
+    "Browser pages": "New-tab, settings and other browser pages.",
+    "Local and file pages": "localhost and file:// pages from local development.",
+    "Pages without a title": "Pages that never loaded or have no title.",
+    "Stack console pages": "Pages inside the consoles of your stack (Cloudflare, Vercel, Supabase, GitHub settings…). The reference folder “Stack” keeps one link per service, and every page here is one click from it.",
+    "Same console twice": "Another page of a console that is already kept as a bookmark.",
+  };
+  function questions() {
+    const qs = [];
+    const add = (key, r, g, idx, kind) => { if (idx.length) qs.push({ key, r, g, idx, kind }); };
+    const noiseCats = new Map();
+    const gs = groups();
+    items.forEach((it, i) => { if (isNoise(it)) { const k = it.s.g || "Other"; if (!noiseCats.has(k)) noiseCats.set(k, []); noiseCats.get(k).push(i); } });
+    for (const [r] of SECTIONS) {
+      if (r === "drop") {
+        for (const [cat, idx] of [...noiseCats.entries()].sort((a, b) => b[1].length - a[1].length))
+          add("noise|" + cat, "noise", { cat }, idx);
+      }
+      const mine = [...gs.values()].filter((g) => sectionOf(g.r) === r).sort((a, b) => b.idx.length - a.idx.length);
+      const small = mine.filter((g) => g.r !== "drop" && g.r !== "keep" && g.idx.length <= SMALL);   // by size, so Back shows the same question
+      const big = mine.filter((g) => !small.includes(g));
+      if (small.length < 2) big.push(...small);
+      for (const g of big) {
+        if (g.r === "drop") {
+          add(g.key + "|t", "drop", g, g.idx.filter((i) => items[i].k === "t"), "t");
+          add(g.key + "|b", "drop", g, g.idx.filter((i) => items[i].k === "b"), "b");
+        } else add(g.key, g.r, g, g.idx);
+      }
+      if (small.length > 1) add("small|" + r, "small", { sec: r }, small.flatMap((g) => g.idx));
+    }
+    return qs;
+  }
+  function renderGuide() {
+    const main = $("main"); main.textContent = "";
+    const total = items.length, d = items.filter(done).length;
+    $("gfill").style.width = (total ? (100 * d / total) : 0) + "%";
+    $("gtxt").textContent = `${fmt(d)} of ${fmt(total)} decided`;
+    $("b-back").disabled = !hist.length;
+    const box = el("div", "q"); main.appendChild(box);
+    const unrouted = items.map((it, i) => i).filter((i) => !cur(items[i]) && !done(items[i]));
+    const qs = questions();
+    const open = qs.filter((q) => pending(q.idx).length);
+    const q = open.find((x) => !skipped.has(x.key));
+    if (q) return groupQuestion(box, q, open.length);
+    const single = items.map((it, i) => i).find((i) => asking(items[i]) || (unrouted.includes(i) && !skipped.has("one|" + items[i].i)));
+    if (single !== undefined) return singleQuestion(box, single);
+    if (open.length) {
+      box.appendChild(el("h2", null, `You skipped ${open.length} question${open.length > 1 ? "s" : ""}`));
+      box.appendChild(el("p", "lead", "Everything else is decided. Go back to the skipped ones now, or export what you have."));
+      const a = el("div", "answer");
+      a.appendChild(btn("Go back to them", "primary", () => { remember(); skipped.clear(); render(); }));
+      a.appendChild(btn(`Export ${stats().ready} decisions`, "", exportDecisions));
+      box.appendChild(a);
+      return;
+    }
+    const s = stats();
+    box.appendChild(el("h2", null, s.ready ? "All decided. Export them." : "Nothing left to decide"));
+    box.appendChild(el("p", "lead", s.ready
+      ? `${s.ready} decisions are ready. Export them, then run apply: it writes each one to its destination.`
+      : "Everything has been applied. Close the tabs that are saved."));
+    const a = el("div", "answer");
+    if (s.ready) a.appendChild(btn(`Export ${s.ready} decisions`, "primary", exportDecisions));
+    a.appendChild(btn("See which tabs can be closed", s.ready ? "" : "primary", () => { setMode("overview"); setView("close"); }));
+    box.appendChild(a);
+  }
+  function itemSub(it) {
+    const sub = el("div", "sub");
+    sub.appendChild(el("span", "kind " + it.k, it.k === "t" ? "tab" : "bookmark"));
+    const bits = [it.h || it.u, BR[it.br] || it.br];
+    if (it.g) bits.push("group: " + it.g);
+    if (it.f) bits.push(it.f);
+    sub.appendChild(document.createTextNode(bits.join(" · ")));
+    return sub;
+  }
+  function comment(c, r) {        // the model's next step (or why, for drops) for one item
+    if (!c) return "";
+    if (c.x) return c.x;
+    if (r === "learn" && c.m) return c.m === "bridge" && c.b ? "bridge → " + c.b : c.m;
+    return c.y || "";
+  }
+  // a <select> of every destination; onPick(value) gets {r, t, f, m}
+  function destSelect(it, placeholder, onPick) {
+    const sel = el("select");
+    const ph = el("option", null, placeholder); ph.value = ""; sel.appendChild(ph);
+    const vals = [];
+    for (const [label, list] of destOptions(it)) {
+      const parent = label ? el("optgroup") : sel;
+      if (label) { parent.label = label; sel.appendChild(parent); }
+      for (const [v, text] of list) { const o = el("option", null, text); o.value = String(vals.length); vals.push(v); parent.appendChild(o); }
+    }
+    sel.addEventListener("change", () => {
+      if (sel.value === "") return;
+      const v = Object.assign({}, vals[Number(sel.value)]);
+      if (v.ask) {
+        const name = (window.prompt(v.ask) || "").trim();
+        if (!name) { sel.value = ""; return; }
+        if (v.r === "learn") { v.f = name; v.m = (CTX.fields || []).includes(name) ? "depth" : "breadth"; } else v.t = name;
+        delete v.ask;
+      }
+      onPick(v);
+    });
+    return sel;
+  }
+  function setNote(it, text) {
+    const t = text.trim();
+    const d = dec[it.i] || {};
+    if (t) d.note = t; else delete d.note;
+    if (Object.keys(d).length) dec[it.i] = d; else delete dec[it.i];
+    save();
+  }
+  function groupQuestion(box, q, left) {
+    const idx = pending(q.idx);
+    const r = q.r === "noise" ? "drop" : q.r === "small" ? q.g.sec : q.r;
+    box.style.setProperty("--sc", q.r === "noise" ? "var(--c-noise)" : secColor(r));
+    const sec = q.r === "noise" ? "Noise" : (SECTIONS.find((x) => x[0] === sectionOf(r)) || [])[1];
+    box.appendChild(el("div", "tag", `${sec} · ${left} question${left > 1 ? "s" : ""} left`));
+    const [title, lead] = PHRASE[q.r](q.g, idx.length, q.kind);
+    box.appendChild(el("h2", null, title));
+    box.appendChild(el("p", "lead", lead));
+    const nChanged = idx.filter((i) => changed(items[i])).length;
+    if (nChanged) box.appendChild(el("p", "lead changed", `${nChanged} of these you accepted before for a different destination. The proposal changed since (merged field, YouTube playlist, stack folder), so it is asked again.`));
+    const ticked = new Set(idx);
+    const list = el("div", "qlist");
+    const hd = el("div", "qhead");
+    ["", "Page", q.r === "drop" || q.r === "noise" ? "Why" : "Next step", ""].forEach((x) => hd.appendChild(el("span", null, x)));
+    list.appendChild(hd);
+    const yes = btn("", "primary", () => answer());
+    const verb = { noise: "drop", drop: "drop", keep: "keep", reference: "bookmark", video: "add", learn: "add", practice: "add" }[q.r] || "send";
+    const movedHere = () => idx.filter((i) => dec[items[i].i] && dec[items[i].i].moved).length;
+    const paintYes = () => {
+      const m = movedHere();
+      yes.textContent = ticked.size ? `Yes, ${verb} ${ticked.size}` + (m ? ` (and move ${m})` : "") : (m ? `Move ${m}, ask me about the rest` : "None of them: ask me one by one");
+    };
+    for (const i of idx) {
+      const it = items[i], c = cur(it);
+      const row = el("div", "qrow");
+      const lab = el("label", "cb");
+      const cb = el("input"); cb.type = "checkbox"; cb.checked = true; cb.title = "Untick: ask me about this one on its own";
+      cb.addEventListener("change", () => { cb.checked ? ticked.add(i) : ticked.delete(i); row.classList.toggle("off", !cb.checked); paintYes(); });
+      lab.appendChild(cb); row.appendChild(lab);
+      const m = el("div");
+      const a = el("a", null, it.t || it.u); a.href = it.u; a.target = "_blank"; a.rel = "noreferrer noopener"; a.title = it.u;
+      m.appendChild(a); m.appendChild(itemSub(it));
+      row.appendChild(m);
+      const nx = el("div", "nx");
+      const paintNx = () => {
+        nx.textContent = comment(cur(it), q.r === "small" ? (cur(it) || {}).r : q.r);
+        const d = dec[it.i];
+        if (d && d.note) nx.appendChild(el("span", "note", "✎ " + d.note));
+      };
+      paintNx();
+      row.appendChild(nx);
+      const rt = el("div", "rt");
+      const badge = el("span", "badge mode", destName(c));
+      if (q.r === "small" || changed(it)) rt.appendChild(badge);
+      let was = null;
+      if (changed(it)) {
+        const [er, et, ef] = (it.ex || "").split("|");
+        was = el("span", "badge", "was: " + (it.ex ? destName({ r: er, t: et, f: ef }) : "another proposal"));
+        was.title = "You accepted this before; the proposal changed since";
+        rt.appendChild(was);
+      }
+      const edit = el("div", "qedit"); edit.style.display = "none";
+      const sel = destSelect(it, "Move to…", (v) => {
+        remember();
+        moveTo(i, v, true);
+        ticked.delete(i); cb.checked = true; cb.disabled = true;
+        row.classList.remove("off"); row.classList.add("moved");
+        badge.textContent = "→ " + destName(cur(it));
+        if (!badge.parentNode) rt.prepend(badge);
+        if (was) was.remove();
+        paintNx(); paintYes();
+      });
+      const note = el("input"); note.type = "text"; note.value = (dec[it.i] || {}).note || "";
+      note.placeholder = "Your note: why you kept it / what it's for (goes with it to the destination)";
+      let noted = false;
+      note.addEventListener("input", () => { if (!noted) { remember(); noted = true; } setNote(it, note.value); paintNx(); });
+      note.addEventListener("keydown", (ev) => { if (ev.key === "Enter") { ev.preventDefault(); edit.style.display = "none"; } });
+      edit.appendChild(sel); edit.appendChild(note);
+      edit.appendChild(btn("Done", "", () => { edit.style.display = "none"; }));
+      rt.appendChild(btn("Change / note", "", () => {
+        const show = edit.style.display === "none";
+        edit.style.display = show ? "" : "none";
+        if (show) note.focus();
+      }, "Move this one somewhere else, or add your own note"));
+      row.appendChild(rt);
+      row.appendChild(edit);
+      list.appendChild(row);
+    }
+    box.appendChild(list);
+    const tools = el("div", "tools");
+    const boxes = () => list.querySelectorAll('.cb input:not(:disabled)');
+    tools.appendChild(btn("Tick all", "", () => { boxes().forEach((x) => { if (!x.checked) x.click(); }); }));
+    tools.appendChild(btn("Untick all", "", () => { boxes().forEach((x) => { if (x.checked) x.click(); }); }));
+    tools.appendChild(el("span", null, "Unticked rows come back at the end, one at a time, so you can pick where each one goes."));
+    box.appendChild(tools);
+    const ans = el("div", "answer");
+    paintYes();
+    ans.appendChild(yes);
+    ans.appendChild(btn("Skip for now", "", () => { remember(); skipped.add(q.key); render(); }));
+    ans.appendChild(el("span", "hint", "Enter = yes · S = skip · Backspace = back"));
+    box.appendChild(ans);
+    function answer() {
+      remember();
+      for (const i of idx) {
+        const it = items[i];
+        if (dec[it.i] && dec[it.i].moved) continue;           // moved with Change: already decided
+        dec[it.i] = Object.assign(dec[it.i] || {}, ticked.has(i) ? { acc: accVal(it) } : { ask: 1 });
+        if (ticked.has(i)) delete dec[it.i].ask; else delete dec[it.i].acc;
+      }
+      save(); render(); $("main").scrollTop = 0;
+    }
+    yes.dataset.primary = "1";
+  }
+  function singleQuestion(box, i) {
+    const it = items[i], c = cur(it);
+    box.style.setProperty("--sc", c ? secColor(c.r) : "var(--c-noise)");
+    const n = items.filter((x) => asking(x)).length;
+    box.appendChild(el("div", "tag", `One at a time · ${n} left`));
+    box.appendChild(el("h2", null, "Where does this one go?"));
+    const card = el("div", "single");
+    const a = el("a", null, it.t || it.u); a.href = it.u; a.target = "_blank"; a.rel = "noreferrer noopener"; a.title = it.u;
+    card.appendChild(a); card.appendChild(itemSub(it));
+    if (c) card.appendChild(el("div", "was", `Proposed: ${destName(c)}` + (c.x ? ` → ${c.x}` : c.y ? ` (${c.y})` : "")));
+    const nb = el("div", "notebox");
+    const note = el("input"); note.type = "text"; note.value = (dec[it.i] || {}).note || "";
+    note.placeholder = "Your note (optional): why you kept it / what it's for. It goes with it to the destination.";
+    nb.appendChild(note); card.appendChild(nb);
+    box.appendChild(card);
+    const opts = el("div", "opts");
+    const pick = (v) => { remember(); moveTo(i, v); setNote(it, note.value); render(); $("main").scrollTop = 0; };
+    const choice = (label, small, v, cls) => {
+      const b = btn("", cls || "", () => pick(v));
+      b.appendChild(document.createTextNode(label));
+      if (small) b.appendChild(el("small", null, small));
+      opts.appendChild(b);
+    };
+    if (c && c.r !== "drop") choice(destName(c), "the proposal after all", { r: c.r, t: c.t, f: c.f, m: c.m }, "sugg");
+    choice("Drop", it.k === "b" ? "delete the bookmark" : "close the tab", { r: "drop" });
+    if (isVideo(it.u) && CTX.areas) {
+      for (const a of Object.keys(CTX.areas)) if (!(c && c.r === "video" && c.t === a)) choice(`YouTube · ${a}`, "yt-extract processes it", { r: "video", t: a });
+    } else {
+      if (it.k === "t") choice("Keep open", "like a pinned tab", { r: "keep" });
+      choice("Reference: Tools", "a bookmark folder", { r: "reference", t: "Tools" });
+    }
+    box.appendChild(opts);
+    const ans = el("div", "answer");
+    ans.appendChild(destSelect(it, "Somewhere else…", pick));
+    ans.appendChild(btn("Skip", "", () => {
+      remember();
+      const d = dec[it.i]; if (d) { delete d.ask; if (!Object.keys(d).length) delete dec[it.i]; }
+      skipped.add("one|" + it.i); save(); render();
+    }));
+    ans.appendChild(el("span", "hint", "Backspace = back"));
+    box.appendChild(ans);
+  }
+
+  function renderMain(s, nowStep) {
+    const main = $("main"); main.textContent = "";
+    rowsShown = [];
+    if (view === "start") return renderStart(main, s, nowStep);
+    if (view === "close") return renderClose(main);
+    let title = "", sub = "", idx = [], bulk = null;
+    if (view === "noise") {
+      title = "Noise"; sub = "Duplicates, search and login pages, browser pages, tabs you already bookmarked. Accept to drop them, or move one you want to keep.";
+      idx = items.map((it, i) => i).filter((i) => isNoise(items[i]));
+      if (noiseCat) idx = idx.filter((i) => items[i].s.g === noiseCat);
+      bulk = "Drop all shown";
+    } else if (view === "unrouted") {
+      title = "Not routed yet"; sub = "Run  python3 -m tab_rescue route  to get a proposed destination for these, or move them yourself.";
+      idx = items.map((it, i) => i).filter((i) => !cur(items[i]));
+    } else if (view === "search") {
+      title = "Search"; sub = "All items";
+      idx = items.map((it, i) => i);
+    } else if (view.startsWith("dest:")) {
+      const g = groups().get(view.slice(5));
+      if (!g) { view = "start"; return render(); }
+      title = g.name;
+      sub = destDesc(g.r, g.t) || (SECTIONS.find((x) => x[0] === sectionOf(g.r)) || [])[2] || "";
+      idx = g.idx;
+      bulk = g.r === "drop" ? "Drop all" : "Accept all";
+    }
+    const head = el("div"); head.id = "viewhead";
+    head.appendChild(el("h2", null, title));
+    const fi = el("input"); fi.type = "text"; fi.id = "filter"; fi.placeholder = "Filter by title or URL  ( / )"; fi.value = filterText;
+    fi.addEventListener("input", () => { filterText = fi.value; fillList(); });
+    head.appendChild(fi);
+    head.appendChild(el("span", "grow"));
+    if (bulk) head.appendChild(btn(bulk, "primary", () => { acceptMany(listIdx()); }, "Accept every row shown (filtered rows only, if filtering)"));
+    main.appendChild(head);
+    if (sub) main.appendChild(el("p", "sub", sub)).style.cssText = "margin:-4px 0 12px;color:var(--muted)";
+    if (view === "noise") {
+      const counts = new Map();
+      items.forEach((it) => { if (isNoise(it)) counts.set(it.s.g, (counts.get(it.s.g) || 0) + 1); });
+      const chips = el("div", "chips");
+      const chip = (label, val, n) => {
+        const c = el("span", "chip" + (noiseCat === val ? " on" : ""), `${label} · ${n}`);
+        c.addEventListener("click", () => { noiseCat = val; render(); });
+        chips.appendChild(c);
+      };
+      chip("All", "", [...counts.values()].reduce((a, b) => a + b, 0));
+      [...counts.entries()].sort((a, b) => b[1] - a[1]).forEach(([g, n]) => chip(g, g, n));
+      main.appendChild(chips);
+    }
+    const list = el("div", "list"); list.id = "list";
+    main.appendChild(list);
+    let base = idx;
+    function listIdx() {
+      const q = filterText.trim().toLowerCase();
+      return q ? base.filter((i) => hay[i].includes(q)) : base;
+    }
+    function fillList() {
+      list.textContent = "";
+      const all = listIdx();
+      rowsShown = all;
+      if (!all.length) { list.appendChild(el("div", "empty", "Nothing here.")); return; }
+      let shown = 0;
+      const more = btn("", "more", () => addRows());
+      function addRows() {
+        const end = Math.min(all.length, shown + CHUNK);
+        for (; shown < end; shown++) list.appendChild(makeRow(all[shown]));
+        more.remove();
+        if (shown < all.length) { more.textContent = `Show ${Math.min(CHUNK, all.length - shown)} more of ${all.length - shown}`; list.appendChild(more); }
+      }
+      addRows();
+    }
+    fillList();
+  }
+
+  function renderStart(main, s, nowStep) {
+    const box = el("div", "intro");
+    box.appendChild(el("h2", null, "Every tab gets one destination"));
+    const p = el("p");
+    p.innerHTML = "Tabs and bookmarks are proposed for a <b>project inbox</b>, <b>Venture OS</b>, a <b>knowledge field</b> " +
+      "(depth, bridge or breadth), a clean <b>reference</b> folder, or <b>drop</b>. Nothing in your browser changes. " +
+      "Accept the destinations that look right, open the ones that don't and move single tabs, then export. " +
+      "<code>apply</code> writes them where they belong, and every saved tab can be closed.";
+    box.appendChild(p);
+    const nb = el("div", "nextbox");
+    nb.appendChild(el("span", "what", "Next:"));
+    if (!s.routed && s.unrouted) {
+      nb.appendChild(el("span", null, "No destinations yet. Run"));
+      nb.appendChild(el("code", null, "python3 -m tab_rescue route"));
+      nb.appendChild(el("span", null, "then reload this page."));
+    } else if (nowStep === "noise") {
+      nb.appendChild(el("span", null, `Clear ${s.noise - s.noiseDone} noise items (one click).`));
+      nb.appendChild(btn("Review noise", "primary", () => setView("noise")));
+    } else if (nowStep === "start") {
+      nb.appendChild(el("span", null, `Confirm ${s.routed - s.routedDone} tabs below: accept a destination, or open it to move single tabs.`));
+    } else if (nowStep === "export") {
+      nb.appendChild(el("span", null, `${s.ready} accepted tabs are ready.`));
+      nb.appendChild(btn("Export accepted", "primary", exportDecisions));
+    } else {
+      nb.appendChild(el("span", null, "Close the tabs that are saved."));
+      nb.appendChild(btn("Close tabs", "primary", () => setView("close")));
+    }
+    box.appendChild(nb);
+    main.appendChild(box);
+
+    const gs = sortedGroups();
+    for (const [r, title, sub] of SECTIONS) {
+      const mine = gs.filter((g) => sectionOf(g.r) === r);
+      if (!mine.length) continue;
+      const total = mine.reduce((a, g) => a + g.idx.length, 0);
+      const h = el("div", "section-h");
+      h.style.setProperty("--sc", secColor(r));
+      h.appendChild(el("h3", null, `${title} · ${total}`));
+      h.appendChild(el("span", "sub", sub));
+      main.appendChild(h);
+      const tiles = el("div", "tiles");
+      tiles.style.setProperty("--sc", secColor(r));
+      for (const g of mine) tiles.appendChild(makeTile(g));
+      main.appendChild(tiles);
+    }
+  }
+
+  function makeTile(g) {
+    const n = g.idx.length, d = g.idx.filter((i) => done(items[i])).length;
+    const t = el("div", "tile" + (d >= n ? " complete" : ""));
+    const hd = el("div", "hd");
+    hd.appendChild(el("b", null, g.name));
+    hd.appendChild(el("span", "ct", d >= n ? `${n} ✓` : `${d}/${n} accepted`));
+    t.appendChild(hd);
+    let desc = destDesc(g.r, g.t);
+    if (g.r === "learn") {
+      const m = {};
+      for (const i of g.idx) { const c = cur(items[i]); const k = c.m || "depth"; m[k] = (m[k] || 0) + 1; }
+      desc = Object.entries(m).map(([k, v]) => `${k} ${v}`).join(" · ");
+    }
+    if (desc) t.appendChild(el("div", "desc", desc));
+    const ul = el("ul");
+    for (const i of g.idx.slice(0, 3)) ul.appendChild(el("li", null, items[i].t || items[i].h || items[i].u));
+    if (n > 3) ul.appendChild(el("li", null, `… ${n - 3} more`)).style.color = "var(--muted)";
+    t.appendChild(ul);
+    const b = el("div", "btns");
+    const left = g.idx.filter((i) => !done(items[i]));
+    if (left.length) b.appendChild(btn(g.r === "drop" ? `Drop ${left.length}` : `Accept ${left.length}`, "primary", () => { acceptMany(left); }));
+    b.appendChild(btn("Open", "", () => setView("dest:" + g.key)));
+    t.appendChild(b);
+    return t;
+  }
+
+  function renderClose(main) {
+    const head = el("div"); head.id = "viewhead";
+    head.appendChild(el("h2", null, "Close tabs"));
+    main.appendChild(head);
+    const intro = el("p");
+    intro.style.cssText = "margin:-4px 0 12px;color:var(--muted)";
+    intro.textContent = "A tab is saved once apply has written it to its destination (or it is already a bookmark). " +
+      "Groups marked Close can go in one go: right-click the group and close it. Accepted but not yet exported tabs are not counted.";
+    main.appendChild(intro);
+    const bmNorm = new Set(items.filter((it) => it.k === "b").map((it) => it.n));
+    const saved = (it) => !!it.ap || (it.k === "t" && bmNorm.has(it.n));
+    const tg = new Map(), bf = new Map();
+    items.forEach((it, i) => {
+      const m = it.k === "t" ? tg : bf;
+      const k = it.k === "t" ? (it.g || "(no group)") + " · " + (BR[it.br] || it.br) : (it.f || "(top level)");
+      if (!m.has(k)) m.set(k, []);
+      m.get(k).push(i);
+    });
+    function table(title, m, verb) {
+      const h = el("div", "section-h"); h.appendChild(el("h3", null, title)); main.appendChild(h);
+      const tb = el("table", "plan");
+      const tr0 = el("tr"); ["", "Where", "Saved", "Left to decide"].forEach((x) => tr0.appendChild(el("th", null, x))); tb.appendChild(tr0);
+      const rows = [...m.entries()].sort((a, b) => b[1].length - a[1].length);
+      for (const [k, idx] of rows) {
+        const sv = idx.filter((i) => saved(items[i])).length;
+        const tr = el("tr");
+        const td0 = el("td"); td0.appendChild(el("span", "pill " + (sv === idx.length ? "go" : "wait"), sv === idx.length ? verb : "wait"));
+        tr.appendChild(td0);
+        tr.appendChild(el("td", null, k));
+        tr.appendChild(el("td", null, `${sv}/${idx.length}`));
+        const left = idx.filter((i) => !saved(items[i]));
+        const td = el("td");
+        if (left.length) {
+          td.appendChild(btn(`${left.length} tab${left.length > 1 ? "s" : ""}`, "", () => {
+            view = "search"; render(); rowsShown = left;
+            const list = $("list"); list.textContent = ""; for (const i of left) list.appendChild(makeRow(i));
+            $("viewhead").querySelector("h2").textContent = "Left in " + k;
+          }));
+        }
+        tr.appendChild(td);
+        tb.appendChild(tr);
+      }
+      main.appendChild(tb);
+    }
+    table("Open tabs by tab group", tg, "close");
+    table("Bookmark folders (delete after importing reference-bookmarks.html)", bf, "delete");
+  }
+
+  // ---- rows ---------------------------------------------------------------------------
+  function makeRow(i) {
+    const it = items[i];
+    const row = el("div", "row"); row.dataset.i = i;
+    row.appendChild(btn("✓", "acc", () => toggleAccept(i), "Accept this destination (a)"));
+    const m = el("div", "main");
+    const a = el("a", null, it.t || it.u); a.href = it.u; a.target = "_blank"; a.rel = "noreferrer noopener"; a.title = it.u;
+    m.appendChild(a);
+    const bits = [it.h || it.u, BR[it.br] || it.br];
+    if (it.g) bits.push("group: " + it.g);
+    if (it.f) bits.push(it.f);
+    if (it.pin) bits.push("pinned");
+    const subl = el("div", "sub");
+    subl.appendChild(el("span", "kind " + it.k, it.k === "t" ? "tab" : "bookmark"));
+    subl.appendChild(document.createTextNode(bits.join(" · ")));
+    m.appendChild(subl);
+    const stepLine = el("div", "step-t");
+    m.appendChild(stepLine);
+    row.appendChild(m);
+    const ctl = el("div", "ctl");
+    row.appendChild(ctl);
+    row.addEventListener("click", () => setFocus(i, false));
+    paintRow(row, i);
+    return row;
+  }
+  function paintRow(row, i) {
+    const it = items[i], c = cur(it), d = dec[it.i];
+    row.classList.toggle("accepted", done(it));
+    row.classList.toggle("isdrop", !!c && c.r === "drop");
+    row.classList.toggle("focused", i === focusIdx);
+    const line = row.querySelector(".step-t");
+    const text = c ? (c.x || (c.r === "drop" ? (c.y || "") : "")) : "";
+    line.textContent = text + (d && d.note ? (text ? "  ✎ " : "✎ ") + d.note : "");
+    line.style.display = line.textContent ? "" : "none";
+    if (c && c.y) line.title = c.y;
+    const ctl = row.querySelector(".ctl"); ctl.textContent = "";
+    if (isApplied(it)) ctl.appendChild(el("span", "badge saved", "saved"));
+    if (c && c.r === "learn" && c.m) ctl.appendChild(el("span", "badge mode", c.m === "bridge" && c.b ? "bridge → " + c.b : c.m));
+    const mv = btn((d && d.moved ? "→ " : "") + destName(c), d && d.moved ? "moved" : "", () => openMove(row, i), "Move to another destination (m)");
+    mv.dataset.role = "move";
+    ctl.appendChild(mv);
+    if (!c || (c.r !== "drop" && c.r !== "keep")) ctl.appendChild(btn("✕", "", () => moveTo(i, { r: "drop" }), "Drop (d)"));
+  }
+  function repaint(i) {
+    const row = document.querySelector(`.row[data-i="${i}"]`);
+    if (row) paintRow(row, i);
+  }
+
+  // ---- move menu (built on demand: one select at a time) ----------------------------------
+  const isVideo = (u) => /^https?:\/\/((www|m)\.)?(youtube\.com\/(watch|shorts\/|live\/)|youtu\.be\/)/.test(u || "");
+  function destOptions(it) {
+    const g = groups();
+    const fields = new Set(CTX.fields || []), backlog = new Set(CTX.backlog || []), refs = new Set(["Accounts", "Tools"]);
+    for (const x of g.values()) {
+      if (x.r === "learn" || x.r === "practice") fields.add(x.f);
+      if (x.r === "backlog") backlog.add(x.t);
+      if (x.r === "reference") refs.add(x.t);
+    }
+    const sortA = (s) => [...s].filter(Boolean).sort((a, b) => a.localeCompare(b));
+    const opts = [
+      ["Projects", (CTX.projects || []).map((p) => [{ r: "integrate", t: p.id }, p.id])],
+      ["Business", Object.keys(CTX.modules || MODLABEL).map((m) => [{ r: "venture-os", t: m }, MODLABEL[m] || m])
+        .concat([[{ r: "intake" }, "Idea intake"]])],
+      ["Knowledge (read)", sortA(fields).map((f) => [{ r: "learn", f, m: (CTX.fields || []).includes(f) ? "depth" : "breadth" }, f])
+        .concat([[{ r: "learn", ask: "New knowledge field" }, "+ new field…"]])],
+      ["Practise", sortA(fields).map((f) => [{ r: "practice", f }, f])],
+      ["Future project", sortA(backlog).map((t) => [{ r: "backlog", t }, t]).concat([[{ r: "backlog", ask: "Working name of the future project" }, "+ new…"]])],
+      ["Reference folder", sortA(refs).map((t) => [{ r: "reference", t }, t]).concat([[{ r: "reference", ask: "Bookmark folder name" }, "+ new folder…"]])],
+      ["", [[{ r: "keep" }, "Keep open (pinned)"], [{ r: "drop" }, "Drop"]]],
+    ].filter(([, list]) => list.length);
+    if (it && isVideo(it.u) && CTX.areas) opts.splice(3, 0, ["YouTube playlist (yt-extract)", Object.keys(CTX.areas).map((a) => [{ r: "video", t: a }, a])]);
+    return opts;
+  }
+  function openMove(row, i) {
+    setFocus(i, false);
+    const ctl = row.querySelector(".ctl");
+    const mv = ctl.querySelector('[data-role="move"]');
+    const sel = el("select");
+    const ph = el("option", null, "Move to…"); ph.value = ""; sel.appendChild(ph);
+    const opts = [];
+    for (const [label, list] of destOptions(items[i])) {
+      const parent = label ? el("optgroup") : sel;
+      if (label) { parent.label = label; sel.appendChild(parent); }
+      for (const [v, text] of list) { const o = el("option", null, text); o.value = String(opts.length); opts.push(v); parent.appendChild(o); }
+    }
+    mv.replaceWith(sel);
+    sel.focus();
+    let finished = false;
+    const finish = () => { if (finished) return; finished = true; paintRow(row, i); };
+    sel.addEventListener("change", () => {
+      if (sel.value === "") return;
+      const v = Object.assign({}, opts[Number(sel.value)]);
+      if (v.ask) {
+        const name = (window.prompt(v.ask) || "").trim();
+        if (!name) return finish();
+        if (v.r === "learn") { v.f = name; v.m = (CTX.fields || []).includes(name) ? "depth" : "breadth"; } else v.t = name;
+        delete v.ask;
+      }
+      finished = true;
+      moveTo(i, v);
+    });
+    sel.addEventListener("blur", finish);
+    sel.addEventListener("keydown", (ev) => { if (ev.key === "Escape") { ev.stopPropagation(); finish(); } });
+  }
+  function moveTo(i, v) {
+    const it = items[i], s = it.s, note = dec[it.i] && dec[it.i].note;
+    const same = s && s.r === v.r && (s.t || "") === (v.t || "") && (s.f || "") === (v.f || "");
+    if (same || (v.r === (it.s && it.s.r) && v.r === "drop")) dec[it.i] = { acc: sig(s) };
+    else dec[it.i] = Object.assign({ r: v.r }, v.t ? { t: v.t } : {}, v.f ? { f: v.f } : {}, v.m ? { m: v.m } : {}, { acc: 1, moved: 1 });
+    if (note) dec[it.i].note = note;
+    save(); repaint(i); refreshChrome();
+  }
+  function toggleAccept(i) {
+    const it = items[i];
+    if (!cur(it)) { openMove(document.querySelector(`.row[data-i="${i}"]`), i); return; }
+    if (isApplied(it) && !isAccepted(it)) return;
+    const d = dec[it.i] || {};
+    if (isAccepted(it)) { if (d.moved) delete d.acc; else delete dec[it.i]; if (dec[it.i] && !Object.keys(dec[it.i]).length) delete dec[it.i]; }
+    else dec[it.i] = Object.assign(d, { acc: accVal(it) });
+    save(); repaint(i); refreshChrome();
+  }
+  function acceptMany(idx) {
+    for (const i of idx) {
+      const it = items[i];
+      if (!cur(it) || isApplied(it)) continue;
+      dec[it.i] = Object.assign(dec[it.i] || {}, { acc: accVal(it) });
+    }
+    save(); render();
+  }
+
+  // ---- export ---------------------------------------------------------------------------
+  function exportDecisions() {
+    const out = [];
+    for (const it of items) {
+      if (!isAccepted(it) || isApplied(it)) continue;
+      const c = cur(it); if (!c) continue;
+      const moved = !!(dec[it.i] && dec[it.i].moved);
+      out.push({
+        id: it.i, kind: it.k === "t" ? "tab" : "bookmark", url: it.u, norm: it.n, title: it.t || "",
+        group: it.g || "", folder: it.f || "", route: c.r, target: c.t || "", field: c.f || "", mode: c.m || "",
+        bridge_to: c.b || "", next_step: moved ? "" : (c.x || ""), why: moved ? "moved by hand" : (c.y || ""),
+        one_liner: c.o || "", note: (dec[it.i] && dec[it.i].note) || "",
+      });
+    }
+    if (!out.length) {
+      dialog("Nothing to export", [el("p", null, "Accept some destinations first. Items already applied are not exported again.")]);
+      return;
+    }
+    const blob = new Blob([JSON.stringify({ scanId: DATA.scanId, exported: new Date().toISOString(), decisions: out }, null, 1)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a"); a.href = url; a.download = "tab-rescue-decisions.json";
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 2000);
+    const cmd = DATA.cmd || "python3 -m tab_rescue apply";
+    const row = el("div", "cmd"); row.appendChild(el("code", null, cmd));
+    row.appendChild(btn("Copy", "", (ev) => { try { navigator.clipboard.writeText(cmd); ev.target.textContent = "Copied"; } catch (e) { /* no clipboard */ } }));
+    dialog(`Exported ${out.length} decisions`, [
+      el("p", null, "Saved tab-rescue-decisions.json to your downloads. In a terminal (any folder), run:"), row,
+      el("p", null, "It picks up the newest decisions file, writes each tab to its destination and prints which tab groups are safe to close. Reload this page afterwards: saved tabs show up in step 4."),
+    ]);
+  }
+  function dialog(title, nodes) {
+    $("dlg-title").textContent = title;
+    const b = $("dlg-body"); b.textContent = ""; nodes.forEach((n) => b.appendChild(n));
+    $("dialog").classList.add("open");
+    $("dlg-close").focus();
+  }
+  $("dlg-close").addEventListener("click", () => $("dialog").classList.remove("open"));
+  $("dialog").addEventListener("click", (ev) => { if (ev.target === $("dialog")) $("dialog").classList.remove("open"); });
+  $("b-export").addEventListener("click", exportDecisions);
+  $("b-back").addEventListener("click", back);
+  $("b-mode").addEventListener("click", () => setMode(mode === "guide" ? "overview" : "guide"));
+  $("b-reset").addEventListener("click", () => {
+    if (!window.confirm("Forget every accept and move made on this page?")) return;
+    remember(); dec = {}; save(); render();
+  });
+
+  // ---- keyboard ----------------------------------------------------------------------------
+  function setFocus(i, scroll) {
+    const prev = document.querySelector(".row.focused"); if (prev) prev.classList.remove("focused");
+    focusIdx = i;
+    const row = document.querySelector(`.row[data-i="${i}"]`);
+    if (row) { row.classList.add("focused"); if (scroll) row.scrollIntoView({ block: "nearest" }); }
+  }
+  function step(delta) {
+    const rows = [...document.querySelectorAll(".row")];
+    if (!rows.length) return;
+    let pos = rows.findIndex((r) => Number(r.dataset.i) === focusIdx);
+    pos = pos < 0 ? 0 : Math.max(0, Math.min(rows.length - 1, pos + delta));
+    setFocus(Number(rows[pos].dataset.i), true);
+  }
+  document.addEventListener("keydown", (ev) => {
+    const t = ev.target;
+    if ($("dialog").classList.contains("open")) { if (ev.key === "Escape") $("dialog").classList.remove("open"); return; }
+    if (t && (t.tagName === "INPUT" || t.tagName === "SELECT" || t.tagName === "TEXTAREA")) {
+      if (ev.key === "Escape" && t.id === "filter") { t.blur(); }
+      return;
+    }
+    if (ev.ctrlKey || ev.metaKey || ev.altKey) return;
+    if (mode === "guide") {
+      if (t && t.tagName === "BUTTON" && ev.key === "Enter") return;   // the focused button handles it
+      if (ev.key === "Enter") { const b = document.querySelector('[data-primary="1"]'); if (b) { ev.preventDefault(); b.click(); } }
+      if (ev.key === "Backspace") { ev.preventDefault(); back(); return; }
+      if (ev.key === "s" || ev.key === "S") { const b = [...document.querySelectorAll(".answer button")].find((x) => x.textContent.startsWith("Skip")); if (b) b.click(); }
+      return;
+    }
+    const has = focusIdx >= 0 && document.querySelector(`.row[data-i="${focusIdx}"]`);
+    switch (ev.key) {
+      case "j": step(1); break;
+      case "k": step(-1); break;
+      case "a": if (has) { toggleAccept(focusIdx); step(1); } break;
+      case "d": if (has) { moveTo(focusIdx, { r: "drop" }); step(1); } break;
+      case "m": if (has) { ev.preventDefault(); openMove(document.querySelector(`.row[data-i="${focusIdx}"]`), focusIdx); } break;
+      case "o": if (has) window.open(items[focusIdx].u, "_blank", "noopener,noreferrer"); break;
+      case "/": {
+        ev.preventDefault();
+        if (!$("filter")) { view = "search"; filterText = ""; render(); }
+        $("filter").focus();
+        break;
+      }
+      default: return;
+    }
+  });
+
+  render();
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,4 @@
+#!/usr/bin/env bash
+# tab-rescue launcher: works from any folder (python3 -m tab_rescue only works inside this one).
+ROOT="$(cd "$(dirname "$(readlink -f "$0")")/.." && pwd)"
+PYTHONPATH="$ROOT${PYTHONPATH:+:$PYTHONPATH}" exec python3 -m tab_rescue "$@"
