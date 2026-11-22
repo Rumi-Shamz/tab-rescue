@@ -1,0 +1,27 @@
+# CI via Rumi-Shamz/ci-templates (reusable workflows pinned by commit SHA).
+name: CI
+
+on:
+  pull_request:
+    paths-ignore:
+      - "docs/**"
+      - "**.md"
+  push:
+    branches: [main]
+    paths-ignore:
+      - "docs/**"
+      - "**.md"
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+permissions:
+  contents: read
+
+jobs:
+  python:
+    uses: Rumi-Shamz/ci-templates/.github/workflows/python.yml@7fce04bff5ab5058e749b6fb33c3486880fd65ef # v1
+    with:
+      python-version: "3.14"   # README: Python 3.14, stdlib + numpy
+      pip-packages: "numpy"    # no requirements file in the repo
